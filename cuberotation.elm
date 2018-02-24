@@ -8,8 +8,6 @@ import Time exposing (Time, second, millisecond)
 import Array exposing (Array, get, toList)
 import Mouse exposing (Position)
 
-
-
 type alias Point3D = (Float, Float, Float)
 type alias Point2D = (Float, Float)
 type alias Edge = (Int, Int)
@@ -17,7 +15,8 @@ type alias Vertices = List Point3D
 
 type alias AngularVelocity = {xRate: Float, yRate: Float, zRate: Float}
 
-type alias Model = {v: Vertices, a: AngularVelocity}
+type alias Cube = {v: Vertices}
+type alias Model = {c: Cube, a: AngularVelocity}
 
 type Msg = Tick Time
          | IncXAng
@@ -35,6 +34,9 @@ initVertices = [( 100, 100, 100)
                ,(-100, 100,-100)
                ,( 100,-100,-100)
                ,(-100,-100,-100)]
+
+cube : Cube
+cube = {v = initVertices}
 
 frameRate = 200
 oneDeginRad = 0.01745329255
@@ -74,13 +76,12 @@ dampen ang = ang * dampenPercent -- Basics.max 0 (ang-drpf)g
 accelerateBy :  Float
 accelerateBy = oneDeginRad * 50
 
+rotateCube cube a = {v = List.map (rotate (a.xRate/frameRate) (a.yRate/frameRate) (a.zRate/frameRate)) cube.v}
 
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
   case msg of
-    Tick _ ->  ( {v= (List.map (rotate (model.a.xRate/frameRate)
-                                           (model.a.yRate/frameRate)
-                                           (model.a.zRate/frameRate) ) model.v),
+    Tick _ ->  ( {c= rotateCube model.c model.a,
                       a= {xRate= dampen model.a.xRate, yRate= dampen model.a.yRate, zRate= dampen model.a.zRate}
                  }
                     , Cmd.none)
@@ -147,20 +148,23 @@ buttonStyle =
     , ("float", "left")
     ]
 
-view : Model -> Html Msg
-view model =
+cubeHtml : Cube -> Point2D -> Point2D -> Html Msg
+cubeHtml c (p1x, p1y) (p2x, p2y) =
   let
-     vert2Ds = project model.v
+     vert2Ds = project c.v
   in
     div [divStyle] [
 
-           svg [ viewBox "0 0 600 600", width "350px" ] (drawCube vert2Ds)
+           svg [ viewBox (String.join " " [toString(p1x), toString(p1y), toString(p2x), toString(p2y)]) , width "350px" ] (drawCube vert2Ds)
 
            , button [ onClick IncXAng, buttonStyle ] [ text "x-ang ++" ]
            , button [ onClick IncYAng, buttonStyle ] [ text "y-ang ++" ]
            , button [ onClick IncZAng, buttonStyle ] [ text "z-ang ++" ]
            ]
 
+view : Model -> Html Msg
+view model =
+  cubeHtml model.c (0,0) (600,600)
 
 ----------------- SETUP ------------------
 
@@ -169,7 +173,7 @@ subscriptions model = Time.every ((1000/frameRate) * millisecond) Tick
 
 main =
   Html.program
-    { init = ({v= initVertices, a= initAnglarVel}, Cmd.none)
+    { init = ({c= cube, a= initAnglarVel}, Cmd.none)
     , view = view
     , update = update
     , subscriptions = subscriptions
